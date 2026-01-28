@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Finland Company List (Job Fair Booths)</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 24px;
+      line-height: 1.45;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input,
+    select {
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+    }
+
+    .meta {
+      color: #666;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 1;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #333;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .muted {
+      color: #999;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f6f6f6;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div>
+      <h1>Finland Company List</h1>
+      <div class="meta">Data Source: Provided list + some official/career pages (rest TBD). Generated: 2026-01-27</div>
+    </div>
+    <div class="controls">
+      <input id="q" placeholder="Search company/industry…" />
+
+      <select id="hasLink">
+        <option value="">All</option>
+        <option value="1">Show only with links</option>
+        <option value="0">Show only incomplete</option>
+      </select>
+    </div>
+  </header>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 28%;">Company</th>
+        <th style="width: 30%;">Industry</th>
+        <th style="width: 42%;">Links</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    const qInput = document.getElementById('q');
+    const hasLinkSel = document.getElementById('hasLink');
+    const tbody = document.getElementById('tbody');
+    let data = [];
+
+    function esc(s) {
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function render() {
+      const q = (qInput.value || '').trim().toLowerCase();
+      const hasLink = hasLinkSel.value; // "", "1", "0"
+
+      const filtered = data.filter(d => {
+        const blob = (d.name + ' ' + (d.industry || '')).toLowerCase();
+        if (q && !blob.includes(q)) return false;
+        const ok = !!(d.website_url || d.careers_url);
+        if (hasLink === "1" && !ok) return false;
+        if (hasLink === "0" && ok) return false;
+        return true;
+      });
+
+      tbody.innerHTML = '';
+      for (const d of filtered) {
+        const tr = document.createElement('tr');
+
+        const tdName = document.createElement('td');
+        tdName.innerHTML = `<div><strong>${esc(d.name)}</strong></div>`;
+        tr.appendChild(tdName);
+
+        const tdInd = document.createElement('td');
+        tdInd.innerHTML = d.industry && d.industry !== 'TBD'
+          ? `<span class="tag">${esc(d.industry)}</span>`
+          : `<span class="muted">TBD</span>`;
+        tr.appendChild(tdInd);
+
+        const tdLinks = document.createElement('td');
+        const links = [];
+        if (d.website_url) links.push(`<a href="${esc(d.website_url)}" target="_blank" rel="noopener">Website</a>`);
+        if (d.careers_url) links.push(`<a href="${esc(d.careers_url)}" target="_blank" rel="noopener">Careers</a>`);
+        tdLinks.innerHTML = links.length ? links.join(" · ") : `<span class="muted">TBD</span>`;
+        tr.appendChild(tdLinks);
+
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function init() {
+      try {
+        const res = await fetch('/api/companies');
+        data = await res.json();
+        render();
+      } catch (e) {
+        console.error("Failed to load data", e);
+        tbody.innerHTML = '<tr><td colspan="3">Failed to load data from server. Ensure Node.js is running.</td></tr>';
+      }
+    }
+
+    qInput.addEventListener('input', render);
+    hasLinkSel.addEventListener('change', render);
+
+    init();
+
+  </script>
+</body>
+
+</html>
